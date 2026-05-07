@@ -1,66 +1,41 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-[RequireComponent(typeof(Rigidbody2D))]
 public class PlayerMovement : MonoBehaviour
 {
-    // Physics approach: Using Rigidbody2D with velocity manipulation
-    // Because it'is simple to tune for platformer feel (gravity, collision response, friction).
-
-    [SerializeField] private bool showDebug = true;
-
-    [Header("Movement")]
     [SerializeField] private float moveSpeed = 5f;
-    [SerializeField] private float acceleration = 50f;
-    [SerializeField] private float deceleration = 60f;
+    [SerializeField] private float jumpForce = 10f;
     [SerializeField] private SpriteRenderer spriteRenderer;
-
-    [Header("Jump")]
-    [SerializeField] private float jumpForce = 12f;
-    [SerializeField] private float coyoteTime = 0.12f; 
-    [SerializeField] private float jumpBufferTime = 0.08f; 
-    [SerializeField] private float fallMultiplier = 2.5f;
-    [SerializeField] private float lowJumpMultiplier = 2f;
-
-    [Header("Ground Detection")]
-    [SerializeField] private Transform groundCheck; 
-    [SerializeField] private float groundCheckRadius = 0.12f;
-    [SerializeField] private LayerMask groundLayer; 
-
-    [Header("Interaction Ray")]
+    [SerializeField] private Rigidbody2D rb;
     [SerializeField] private LayerMask interactableLayer;
-    [SerializeField] private float rayLength = 15f; 
+    [SerializeField] private LayerMask groundLayer;
+    [SerializeField] private Transform groundCheck;
+    [SerializeField] private float groundCheckRadius = 0.2f;
 
-    [Header("References")]
+    [SerializeField] private float rayLength = 15f;
+
     public GameObject bullet;
-    public @_2DBinding PlayerInput;
 
-    // InputActions (in OnEnable)
+    public ScriptingBinding PlayerInput;
+
     public InputAction fireAction;
     public InputAction moveAction;
     public InputAction jumpAction;
-
-    // Internal state
-    private Rigidbody2D rb;
+    public InputAction interactAction;
     private Vector2 moveInput;
     private Vector2 facingDirection = Vector2.right;
-    private Interactible currentInteractible;
+    private bool isGrounded;
 
-    // Jump 
-    private float lastGroundedTime = -999f;
-    private float lastJumpPressedTime = -999f;
-    private bool jumpPressed;
-    private bool jumpHeld;
+    Interactible currentInteractible;
 
     private void Awake()
     {
         if (spriteRenderer == null)
             spriteRenderer = GetComponent<SpriteRenderer>();
+        if (rb == null)
+            rb = GetComponent<Rigidbody2D>();
 
-        rb = GetComponent<Rigidbody2D>();
-
-        if (PlayerInput == null)
-            PlayerInput = new @_2DBinding();
+        PlayerInput = new ScriptingBinding();
     }
 
     private void OnEnable()
@@ -74,151 +49,100 @@ public class PlayerMovement : MonoBehaviour
         jumpAction = PlayerInput.Player.Jump;
         jumpAction.Enable();
 
-        fireAction.performed += Fire;
+        interactAction = PlayerInput.Player.Interaction;
+        interactAction.Enable();
 
-        // Use callbacks for jump to capture instant presses/releases making it more responsive
-        jumpAction.performed += ctx => { OnJumpPressed(); };
-        jumpAction.canceled += ctx => { OnJumpReleased(); };
+        fireAction.performed += Fire;
+        jumpAction.performed += Jump;
+        interactAction.performed += Interaction; 
     }
 
-    private void OnDisable()
+    void OnDisable()
     {
         fireAction.performed -= Fire;
-        fireAction.Disable();
+        jumpAction.performed -= Jump;
+        interactAction.performed -= Interaction;
 
         moveAction.Disable();
-
+        fireAction.Disable();
         jumpAction.Disable();
+        interactAction.Disable();
     }
 
     private void Update()
     {
-        
         moveInput = moveAction.ReadValue<Vector2>();
 
-        // Flip sprite and update facing direction
+        // Flip sprite based on direction
         if (moveInput.x != 0)
         {
             spriteRenderer.flipX = moveInput.x < 0;
-            facingDirection = new Vector2(Mathf.Sign(moveInput.x), 0f).normalized;
+            facingDirection = new Vector2(moveInput.x, 0).normalized;
         }
 
-        // Interaction raycast 
+        // Ground check
+        isGrounded = groundCheck != null
+            && Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer);
+
+        // Raycast for interactibles
         RaycastHit2D hit = Physics2D.Raycast(transform.position, facingDirection, rayLength, interactableLayer);
+        Debug.DrawRay(transform.position, facingDirection * rayLength, Color.red);
 
-        if (showDebug)
+        if (hit.collider != null)
         {
-            Debug.DrawRay(transform.position, facingDirection * rayLength, Color.red);
+            Interactible newTarget = hit.collider.GetComponent<Interactible>();
+
+            if (newTarget != currentInteractible)
+            {
+                if (currentInteractible != null)
+                    currentInteractible.Highlight(false);
+
+                currentInteractible = newTarget;
+                if (currentInteractible != null)
+                    currentInteractible.Highlight(true);
+            }
         }
-
-        
-        if (jumpPressed)
+        else if (currentInteractible != null)
         {
-            lastJumpPressedTime = Time.time;
-            jumpPressed = false;
-        }
-
-        if (Keyboard.current.f1Key.wasPressedThisFrame)
-        {
-            showDebug = !showDebug;
-        }
-
-        if (showDebug)
-        {
-            bool grounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer);
-
-            Debug.Log(
-                "Grounded: " + grounded +
-                " | CoyoteTime: " + (Time.time - lastGroundedTime <= coyoteTime) +
-                " | JumpBuffered: " + (Time.time - lastJumpPressedTime <= jumpBufferTime)
-            );
+            currentInteractible.Highlight(false);
+            currentInteractible = null;
         }
     }
 
     private void FixedUpdate()
     {
-        // Ground check using OverlapCircle
-       
-        bool grounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer);
+        rb.linearVelocity = new Vector2(moveInput.x * moveSpeed, rb.linearVelocity.y);
+    }
 
-        if (grounded)
-            lastGroundedTime = Time.time;
-
-        // Horizontal movement with acceleration/deceleration
-        float targetVelX = moveInput.x * moveSpeed;
-        float accel = Mathf.Abs(targetVelX) > 0.01f ? acceleration : deceleration;
-        float newVelX = Mathf.MoveTowards(rb.linearVelocity.x, targetVelX, accel * Time.fixedDeltaTime);
-
-       
-        rb.linearVelocity = new Vector2(newVelX, rb.linearVelocity.y);
-
-        // Coyote time check
-        bool canUseCoyote = (Time.time - lastGroundedTime) <= coyoteTime;
-        bool bufferedJump = (Time.time - lastJumpPressedTime) <= jumpBufferTime;
-
-        if (bufferedJump && canUseCoyote)
+    private void Jump(InputAction.CallbackContext context)
+    {
+        if (context.performed && isGrounded)
         {
-            // Perform jump
-            rb.linearVelocity = new Vector2(rb.linearVelocity.x, 0f); 
             rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce);
-            lastJumpPressedTime = -999f; 
         }
-
-      
-        if (rb.linearVelocity.y < 0)
-        {
-            // Falling faster
-            rb.linearVelocity = rb.linearVelocity + (Vector2.up * Physics2D.gravity.y * (fallMultiplier - 1f) * Time.fixedDeltaTime);
-        }
-        else if (rb.linearVelocity.y > 0 && !jumpHeld)
-        {
-            // shorter jump
-            rb.linearVelocity = rb.linearVelocity + (Vector2.up * Physics2D.gravity.y * (lowJumpMultiplier - 1f) * Time.fixedDeltaTime);
-        }
-    }
-
-    private void OnJumpPressed()
-    {
-       
-        jumpPressed = true;
-        jumpHeld = true;
-    }
-
-    private void OnJumpReleased()
-    {
-        jumpHeld = false;
     }
 
     private void Fire(InputAction.CallbackContext context)
     {
         if (context.performed)
         {
-            if (bullet != null)
+            GameObject bulletInstance = Instantiate(bullet.gameObject, transform.position, Quaternion.identity);
+            if(bulletInstance.TryGetComponent(out Bullet bulletComponent))
             {
-                GameObject bulletInstance = Instantiate(bullet, transform.position, Quaternion.identity);
-                if (bulletInstance.TryGetComponent(out Bullet bulletComponent))
-                {
-                    bulletComponent.Initialize(facingDirection);
-                }
+                bulletComponent.Initialize(facingDirection); // Pass the current movement direction to the bullet
             }
-
-          
         }
     }
 
-    // visualization of ground detection in editor via Gizmos (Debug.DrawRay used above)
-    private void OnDrawGizmosSelected()
+
+    private void Interaction(InputAction.CallbackContext context)
     {
-        if (!showDebug) return;
-
-        if (groundCheck != null)
+        if (context.performed)
         {
-            Gizmos.color = Color.green;
-            Gizmos.DrawWireSphere(groundCheck.position, groundCheckRadius);
+            if (currentInteractible != null)
+            {
+                currentInteractible.Interact();
+            }
         }
-
-        
-        Gizmos.color = Color.red;
-        Gizmos.DrawLine(transform.position, transform.position + (Vector3)facingDirection * rayLength);
     }
 }

@@ -1,0 +1,31 @@
+Adventure Game - Game Level Design
+Alexandre Crochet-Gibault
+
+Free The Cube !
+Open all 4 colors doors
+Beat the Final Boss
+Liberate the Kiwi for next level
+NB : next level is not complete. it's just a placeholder
+
+Controls Keyboard - GamePad
+
+Movement : WASD - left joystick
+Jump : Spacebar - A (south) button (press longer for longer higher jump once unlocked)
+Fire : enter - right Trigger - left mouse click
+Invisibility power : Shift - B (right) button
+
+
+
+Assets 
+
+SFX
+RPG Essentials Sound Effects - FREE!
+by leohpaz
+
+Music
+8Bit Music - 062022
+by GWriterStudio
+
+Sprites
+Pixel Adventure 1
+by PixelFrog

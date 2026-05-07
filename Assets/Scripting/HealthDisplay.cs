@@ -20,5 +20,3 @@ public class HealthDisplay : MonoBehaviour
         healthText.text = $"Health: {currentHealth}";
     }
 }
-
-
