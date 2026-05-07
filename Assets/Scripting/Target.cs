@@ -39,6 +39,7 @@ public class Target : MonoBehaviour
             spriteRenderer.color = Color.gray; // Indicate that the target is "destroyed"
             TargetManager.Instance.NotifyTargetDestroyed();
             gameObject.SetActive(false); // Deactivate the target
+            Destroy(gameObject); // Optionally destroy the game object after a delay
         }
     }
 }

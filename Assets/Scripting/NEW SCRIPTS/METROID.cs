@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class PhaseActivation : MonoBehaviour
+public class METROID : MonoBehaviour
 {
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()

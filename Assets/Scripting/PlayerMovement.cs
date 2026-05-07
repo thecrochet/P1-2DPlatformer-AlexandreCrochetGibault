@@ -28,6 +28,12 @@ public class PlayerMovement : MonoBehaviour
 
     Interactible currentInteractible;
 
+
+    [Header("Powers")]
+    [SerializeField] private bool hasGun = false;
+    [SerializeField] private bool hasPhasePower = false;
+
+    [SerializeField] private float jumpBoostAmount = 5f;
     private void Awake()
     {
         if (spriteRenderer == null)
@@ -144,5 +150,24 @@ public class PlayerMovement : MonoBehaviour
                 currentInteractible.Interact();
             }
         }
+    }
+
+
+    public void GiveGun()
+    {
+        hasGun = true;
+        Debug.Log("Gun unlocked!");
+    }
+
+    public void GivePhasePower()
+    {
+        hasPhasePower = true;
+        Debug.Log("Phase power unlocked!");
+    }
+
+    public void GiveJumpBoost(float min, float max)
+    {
+        jumpForce += jumpBoostAmount;
+        Debug.Log("Jump boosted!");
     }
 }

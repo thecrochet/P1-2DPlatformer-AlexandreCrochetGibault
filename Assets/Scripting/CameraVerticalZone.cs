@@ -29,7 +29,7 @@ public class CameraVerticalZone : MonoBehaviour
 
         if (enableWhileInside)
         {
-            camFollow.SetVerticalFollow(true, snapOnEnter);
+            //camFollow.SetVerticalFollow(true, snapOnEnter);
             if (oneShot) enabled = false;
         }
     }
@@ -41,7 +41,7 @@ public class CameraVerticalZone : MonoBehaviour
 
         if (enableWhileInside && !oneShot)
         {
-            camFollow.SetVerticalFollow(false, false);
+            //camFollow.SetVerticalFollow(false, false);
         }
     }
 }
